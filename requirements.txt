@@ -8,3 +8,6 @@ requests==2.32.3
 
 # Optional LLM dependencies (skipped on Python 3.13)
 transformers==4.45.0 ; python_version < '3.13'
+
+# Lightweight retrieval dependency for RAG
+rank-bm25==0.2.2

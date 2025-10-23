@@ -22,8 +22,17 @@ def simple_heuristic_extract(text: str) -> Dict[str, Any]:
 
 
 class ExtractionPipeline:
-    def __init__(self, llm=None):
+    def __init__(
+        self,
+        llm=None,
+        rag_enabled: bool = False,
+        rag_top_k: int = 8,
+        rag_query_hint: str | None = None,
+    ):
         self.llm = llm
+        self.rag_enabled = rag_enabled
+        self.rag_top_k = rag_top_k
+        self.rag_query_hint = rag_query_hint
 
     def extract(self, text: str) -> RFPData:
         # Start with heuristics
@@ -32,7 +41,24 @@ class ExtractionPipeline:
         # Use LLM for structured JSON
         llm_json = {}
         if self.llm:
-            prompt = build_extraction_prompt(text[:8000])  # keep prompt size bounded
+            # Optionally build RAG context
+            rag_context: Optional[str] = None
+            if self.rag_enabled:
+                try:
+                    from rfp_extractor.retrieval import build_rag_context  # lazy import
+
+                    rag_context = build_rag_context(
+                        text=text,
+                        top_k=self.rag_top_k,
+                        query_hint=self.rag_query_hint,
+                    )
+                    # Keep context bounded to avoid overlong prompts
+                    if rag_context and len(rag_context) > 4000:
+                        rag_context = rag_context[:4000] + "\n..."
+                except Exception:
+                    rag_context = None
+
+            prompt = build_extraction_prompt(text[:8000], rag_context=rag_context)
             try:
                 raw = self.llm.extract_json(prompt)
                 llm_json = self._safe_json_parse(raw)

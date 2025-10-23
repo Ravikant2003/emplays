@@ -57,15 +57,27 @@ def main():
     parser.add_argument("--device", default=None)
     parser.add_argument("--out", default="outputs")
     parser.add_argument("--no-llm", action="store_true", help="Disable LLM and use heuristics only")
+    parser.add_argument("--use-rag", action="store_true", help="Enable RAG (BM25 retriever) to ground the prompt")
+    parser.add_argument("--rag-top-k", type=int, default=8, help="Number of passages to retrieve for RAG")
+    parser.add_argument("--rag-hint", type=str, default="", help="Optional query hint to steer retrieval")
     args = parser.parse_args()
 
     if args.no_llm:
         llm = None
     else:
         # Lazy import to avoid requiring transformers/torch when disabled
-        from rfp_extractor.llm.flan_t5 import FlanT5Extractor  # type: ignore
-        llm = FlanT5Extractor(model_name=args.model, device=args.device)
-    pipeline = ExtractionPipeline(llm=llm)
+        try:
+            from rfp_extractor.llm.flan_t5 import FlanT5Extractor  # type: ignore
+            llm = FlanT5Extractor(model_name=args.model, device=args.device)
+        except Exception as e:  # Graceful fallback when transformers is unavailable
+            print(f"Warning: LLM disabled due to import/load error: {e}", file=sys.stderr)
+            llm = None
+    pipeline = ExtractionPipeline(
+        llm=llm,
+        rag_enabled=bool(args.use_rag),
+        rag_top_k=int(args.rag_top_k),
+        rag_query_hint=(args.rag_hint or None),
+    )
 
     output_dir = Path(args.out)
     output_dir.mkdir(parents=True, exist_ok=True)
