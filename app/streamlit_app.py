@@ -18,9 +18,21 @@ with st.sidebar:
     model = st.text_input("Flan-T5 model", value="google/flan-t5-base")
     device = st.selectbox("Device", [None, "cpu"], index=1)
     st.caption("Uses heuristic + LLM extraction with synonyms prompts.")
+    st.divider()
+    st.markdown("**Retrieval-Augmented Generation (RAG)**")
+    use_rag = st.toggle("Use RAG (BM25 retriever)", value=False)
+    rag_top_k = st.number_input("RAG top-k passages", min_value=1, max_value=20, value=8, step=1)
+    rag_hint = st.text_input("Optional RAG query hint", value="")
 
 @st.cache_resource(show_spinner=False)
-def get_pipeline(model_name: str, device_opt: str | None, use_llm: bool) -> ExtractionPipeline:
+def get_pipeline(
+    model_name: str,
+    device_opt: str | None,
+    use_llm: bool,
+    use_rag: bool,
+    rag_top_k: int,
+    rag_hint: str,
+) -> ExtractionPipeline:
     llm = None
     if use_llm:
         try:
@@ -29,10 +41,15 @@ def get_pipeline(model_name: str, device_opt: str | None, use_llm: bool) -> Extr
         except Exception as e:
             st.warning(f"LLM disabled due to import/load error: {e}")
             llm = None
-    return ExtractionPipeline(llm=llm)
+    return ExtractionPipeline(
+        llm=llm,
+        rag_enabled=use_rag,
+        rag_top_k=int(rag_top_k),
+        rag_query_hint=(rag_hint or None),
+    )
 
 use_llm = st.toggle("Use LLM (Flan‑T5)", value=False)
-pipeline = get_pipeline(model, device, use_llm)
+pipeline = get_pipeline(model, device, use_llm, use_rag, rag_top_k, rag_hint)
 
 col1, col2 = st.columns(2)
 

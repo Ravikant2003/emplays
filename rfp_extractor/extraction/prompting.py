@@ -9,7 +9,7 @@ SYSTEM_INSTRUCTIONS = (
 )
 
 
-def build_extraction_prompt(text: str) -> str:
+def build_extraction_prompt(text: str, rag_context: str | None = None) -> str:
     fields = [
         "Bid Number",
         "Title",
@@ -35,6 +35,8 @@ def build_extraction_prompt(text: str) -> str:
         f"- {k}: {', '.join(v)}" for k, v in FIELD_SYNONYMS.items()
     )
 
+    rag_section = f"\n\nUse only the following retrieved passages for grounding (they may be partial):\n{rag_context}" if rag_context else ""
+
     prompt = f"""
 {SYSTEM_INSTRUCTIONS}
 Extract the following fields from the provided document text.
@@ -43,6 +45,7 @@ Return ONLY a compact JSON object with these exact keys (use empty string if mis
 
 Synonyms and hints (helpful but not exhaustive):
 {synonyms_text}
+{rag_section}
 
 Document text:
 {text}
